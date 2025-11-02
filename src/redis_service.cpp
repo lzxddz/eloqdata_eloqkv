@@ -1111,6 +1111,16 @@ bool RedisServiceImpl::Init(brpc::Server &brpc_server)
 
         // Start data store service. (Also create datastore in StartService() if
         // needed)
+
+        std::unordered_map<uint32_t, uint32_t> init_ng_leaders;
+        if ((FLAGS_bootstrap || is_single_node))
+        {
+            for (const auto &ng_config : ng_configs)
+            {
+                init_ng_leaders.try_emplace(ng_config.first, node_id);
+            }
+        }
+
         bool ret = data_store_service_->StartService(
             (FLAGS_bootstrap || is_single_node));
         if (!ret)
@@ -1119,8 +1129,13 @@ bool RedisServiceImpl::Init(brpc::Server &brpc_server)
             return false;
         }
         // setup data store service client
+        // store_hd_ = std::make_unique<EloqDS::DataStoreServiceClient>(
+        //     catalog_factory, ds_config, data_store_service_.get());
         store_hd_ = std::make_unique<EloqDS::DataStoreServiceClient>(
-            catalog_factory, ds_config, data_store_service_.get());
+            catalog_factory,
+            ng_configs,
+            init_ng_leaders,
+            data_store_service_.get());
 
 #endif
 
