@@ -1016,13 +1016,13 @@ bool RedisServiceImpl::Init(brpc::Server &brpc_server)
 
         std::string dss_config_file_path = "";
         EloqDS::DataStoreServiceClusterManager ds_config;
-        uint32_t dss_leader_id = UINT32_MAX;
-        if (FLAGS_bootstrap || is_single_node)
-        {
-            dss_leader_id = node_id;
-        }
-        EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
-            node_id, native_ng_id, ng_configs, dss_leader_id, ds_config);
+        // uint32_t dss_leader_id = UINT32_MAX;
+        // if (FLAGS_bootstrap || is_single_node)
+        // {
+        //     dss_leader_id = node_id;
+        // }
+        // EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
+        //     node_id, native_ng_id, ng_configs, dss_leader_id, ds_config);
 
         // std::string dss_config_file_path =
         //     eloq_dss_data_path + "/dss_config.ini";
@@ -1104,6 +1104,9 @@ bool RedisServiceImpl::Init(brpc::Server &brpc_server)
 #endif
 
         data_store_service_ = std::make_unique<EloqDS::DataStoreService>(
+            node_id,
+            local_ip,
+            local_tx_port + 7,
             ds_config,
             dss_config_file_path,
             eloq_dss_data_path + "/DSMigrateLog",
@@ -1113,16 +1116,18 @@ bool RedisServiceImpl::Init(brpc::Server &brpc_server)
         // needed)
 
         std::unordered_map<uint32_t, uint32_t> init_ng_leaders;
+        std::vector<uint32_t> bootstrap_shards;
         if ((FLAGS_bootstrap || is_single_node))
         {
             for (const auto &ng_config : ng_configs)
             {
                 init_ng_leaders.try_emplace(ng_config.first, node_id);
+                bootstrap_shards.emplace_back(ng_config.first);
             }
         }
 
         bool ret = data_store_service_->StartService(
-            (FLAGS_bootstrap || is_single_node));
+            (FLAGS_bootstrap || is_single_node), bootstrap_shards);
         if (!ret)
         {
             LOG(ERROR) << "Failed to start data store service";
